@@ -52,7 +52,7 @@ def track_models(train, validation, config):
             estimator = bundle['pipeline'].named_steps['model']
             parameters = {key: value for key, value in estimator.get_params().items()
                           if isinstance(value, (str, int, float, bool)) or value is None}
-            mlflow.log_params({**parameters, 'seed': config['seed'],
+            mlflow.log_params({**parameters, 'seed': config['seed'], 'data_version': config['data']['version'],
                                'threshold': bundle['threshold'], 'config_hash': config_hash(),
                                'missed_fraud_cost': config['costs']['missed_fraud'],
                                'false_alarm_cost': config['costs']['false_alarm']})
@@ -67,8 +67,8 @@ def track_models(train, validation, config):
             mlflow.log_dict({'threshold': bundle['threshold'], 'model': name}, 'threshold.json')
             mlflow.log_artifact(str(ROOT / 'config.yaml'))
             records[name] = {'run_id': run.info.run_id, 'uri': info.model_uri,
-                             'threshold': bundle['threshold']}
-    best = select_model(bundles, comparison)['name']
+                             'threshold': bundle['threshold'], 'data_version': config['data']['version']}
+    best = select_model(bundles, comparison, config)['name']
     runs = mlflow.search_runs(experiment_ids=[experiment_id],
                               filter_string=f"tags.git_commit = '{commit}'")
     return records, best, runs, comparison
@@ -91,6 +91,7 @@ def register_candidates(records, best):
         client.set_model_version_tag(MODEL_NAME, version.version, 'threshold',
                                      str(records[name]['threshold']))
         client.set_model_version_tag(MODEL_NAME, version.version, 'estimator', name)
+        client.set_model_version_tag(MODEL_NAME, version.version, 'data_version', records[name]['data_version'])
     client.set_registered_model_alias(MODEL_NAME, 'champion', winner.version)
     client.set_registered_model_alias(MODEL_NAME, 'challenger', other.version)
     return client, winner.version, other.version
@@ -106,7 +107,8 @@ def load_champion():
     version = client.get_model_version_by_alias(MODEL_NAME, 'champion')
     pipeline = mlflow.sklearn.load_model(f'models:/{MODEL_NAME}/{version.version}')
     return {'pipeline': pipeline, 'threshold': float(version.tags['threshold']),
-            'name': version.tags['estimator'], 'registry_version': version.version}
+            'name': version.tags['estimator'], 'registry_version': version.version,
+            'data_version': version.tags.get('data_version')}
 
 
 def start_ui():

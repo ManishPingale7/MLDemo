@@ -21,7 +21,7 @@ def code(text):
 
 
 def notebook_one():
-    cells = [md('# 1. Problem and metrics\nFlag suspicious payments for review, using fraud-catching ability and an assumed business cost to compare models.'), code('''
+    cells = [md('# 1. Problem and metrics\nFlag suspicious payments for review in an intentionally easy synthetic dataset with clear risk profiles and light label noise.'), code('''
 from pathlib import Path
 import os
 import sys
@@ -89,7 +89,7 @@ bundles, comparison = fit_models(train, validation, config)
 display(bundles['Logistic Regression']['pipeline'])
 display(comparison[['train_seconds', 'threshold']].round(3))
 display(Markdown(f'Three learned models plus the baseline fit in {comparison.train_seconds.sum():.2f} seconds. Numeric medians and categorical one-hot vocabularies are learned on training data; only logistic regression also scales numeric inputs.'))
-'''), md('Logistic regression fits an additive decision rule, random forest averages small decision trees, and LightGBM adds trees that correct earlier errors. No hyperparameter search is used; validation chooses a threshold for each model on the same fixed grid.'), md('# 8. Metrics\nCompare models on the same validation period at their cost-minimising thresholds within the daily review budget.'), code('''
+'''), md('Logistic regression fits an additive decision rule, random forest averages small decision trees, and LightGBM adds trees that correct earlier errors. No hyperparameter search is used; validation chooses thresholds on the same fixed grid, requiring at least 85% precision where achievable.'), md('# 8. Metrics\nCompare models on the same validation period at their cost-minimising thresholds within the daily review budget and precision target, where achievable.'), code('''
 display(comparison.round(4))
 probabilities = {name: bundle['pipeline'].predict_proba(validation[FEATURES])[:, 1] for name, bundle in bundles.items()}
 thresholds = {name: bundle['threshold'] for name, bundle in bundles.items()}
@@ -104,13 +104,13 @@ display(overfit.round(4))
 gaps = overfit.train_pr_auc - overfit.validation_pr_auc
 largest_gap = gaps.idxmax()
 display(Markdown(f'{largest_gap} has the largest train-minus-validation PR-AUC gap ({gaps[largest_gap]:.3f}). A positive gap is a warning about overfitting or changed data, rather than proof of its cause.'))
-'''), md('# 9. Choose model and threshold\nSelect the lowest validation cost among learned models, subject to the configured maximum alerts on every validation day.'), code('''
-selected = select_model(bundles, comparison)
+'''), md('# 9. Choose model and threshold\nSelect the lowest validation cost among models meeting the quality gate and daily review budget, breaking cost ties by higher PR-AUC.'), code('''
+selected = select_model(bundles, comparison, config)
 name, threshold = selected['name'], selected['threshold']
 plots.threshold_plot(selected['curve'], threshold)
 row = comparison.loc[name]
 peak = selected['curve'].loc[np.isclose(selected['curve'].threshold, threshold), 'peak_alerts_per_day'].iloc[0]
-display(Markdown(f'Selected {name} at threshold {threshold:.2f} because its validation cost is lowest at INR {row.cost_per_txn:.2f} per transaction, with recall {row.recall:.2%} and precision {row.precision:.2%}. Its busiest validation day has {peak:.0f} alerts, within the assumed budget of {config["alert_budget_per_day"]} per day.'))
+display(Markdown(f'Selected {name} at threshold {threshold:.2f} because it meets the quality gate with the lowest validation cost (ties use PR-AUC), INR {row.cost_per_txn:.2f} per transaction, with recall {row.recall:.2%} and precision {row.precision:.2%}. Its busiest validation day has {peak:.0f} alerts, within the assumed budget of {config["alert_budget_per_day"]} per day.'))
 plots.importance_chart(importance(selected), name)
 display(Markdown(f'The largest built-in importance belongs to {importance(selected).index[-1]}. Importance describes this fitted model, not a causal effect.'))
 '''), md('# 10. Final test and next steps\nEvaluate the frozen model and threshold once on the held-out final 15 days to estimate performance on later transactions.'), code('''
@@ -125,10 +125,10 @@ save_bundle(bundles['Always approve'], ROOT / 'models' / 'baseline.joblib')
 display(Markdown(f'Test recall is {test_metrics["recall"]:.2%}, precision {test_metrics["precision"]:.2%}, PR-AUC {test_metrics["pr_auc"]:.3f}, and cost INR {test_metrics["cost_per_txn"]:.2f} per transaction. Test cost differs from validation by INR {test_metrics["cost_per_txn"]-row.cost_per_txn:+.2f}; no threshold is changed after this result.'))
 '''), code('''
 elapsed = time.perf_counter() - started
-report = {'selected_model': name, 'threshold': threshold, 'comparison': comparison.reset_index().to_dict('records'), 'test': test_metrics, 'validation': selected['validation_metrics'], 'notebook_body_seconds': elapsed}
+report = {'selected_model': name, 'threshold': threshold, 'data_version': config['data']['version'], 'comparison': comparison.reset_index().to_dict('records'), 'test': test_metrics, 'validation': selected['validation_metrics'], 'notebook_body_seconds': elapsed}
 (ROOT / 'models' / 'ml_summary.json').write_text(json.dumps(report, indent=2))
-display(Markdown(f'Saved the fitted pipeline and threshold in models/candidate.joblib; this notebook body ran in {elapsed:.2f} seconds on this machine. PR-AUC and recall remain imperfect because labels include random noise.'))
-'''), md('**Limitations and next steps**\n\n- Synthetic data: the label rule and costs are teaching assumptions, not evidence of real-world performance.\n- More features: evaluate better transaction context on real, consented data.\n- Drift monitoring: check whether incoming data changes.\n- Delayed labels: account for when confirmed fraud becomes available.\n- Explainability: validate explanations with fraud reviewers.\n- Retraining: define when a new candidate should be trained and reviewed.')]
+display(Markdown(f'Saved the fitted pipeline and threshold in models/candidate.joblib; this notebook body ran in {elapsed:.2f} seconds on this machine. These results come from intentionally clear synthetic patterns; light label noise keeps the example imperfect.'))
+'''), md('**Limitations and next steps**\n\n- Synthetic data: clear risk profiles and light label noise were designed for teaching; scores do not establish real-world performance.\n- More features: evaluate better transaction context on real, consented data.\n- Drift monitoring: check whether incoming data changes.\n- Delayed labels: account for when confirmed fraud becomes available.\n- Explainability: validate explanations with fraud reviewers.\n- Retraining: define when a new candidate should be trained and reviewed.')]
     write('01_fraud_detection.ipynb', cells)
 
 
@@ -160,7 +160,7 @@ config = load_config()
 frame = add_features(clean_data(pd.read_csv('data/transactions.csv')), config)
 train, validation, _ = time_split(frame, config)
 records, best, runs, comparison = track_models(train, validation, config)
-columns = ['tags.mlflow.runName', 'metrics.pr_auc', 'metrics.recall', 'metrics.precision', 'metrics.cost_per_txn', 'params.threshold', 'tags.git_commit', 'tags.config_hash']
+columns = ['tags.mlflow.runName', 'metrics.pr_auc', 'metrics.recall', 'metrics.precision', 'metrics.cost_per_txn', 'params.threshold', 'params.data_version', 'tags.git_commit', 'tags.config_hash']
 display(runs[columns])
 display(Markdown(f'This experiment records {len(records)} learned models; {best} has the lowest validation cost at INR {comparison.loc[best, "cost_per_txn"]:.2f} per transaction. Git SHA and the configuration hash link each run to its inputs.'))
 """), code("""

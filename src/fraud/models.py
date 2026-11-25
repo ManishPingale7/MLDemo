@@ -15,6 +15,7 @@ from threadpoolctl import threadpool_limits
 
 from fraud.features import CATEGORICAL, FEATURES, NUMERIC
 from fraud.evaluate import best_threshold, metrics
+from fraud.gate import check_gate
 
 
 def make_pipeline(name, config, positive_weight=1.0):
@@ -60,13 +61,18 @@ def fit_models(train, validation, config, scale=1.0):
                                           validation.timestamp.dt.date, scale)
         scores = metrics(validation.is_fraud, probability, threshold, config)
         bundles[name] = {'pipeline': pipeline, 'threshold': threshold, 'name': name,
-                         'validation_metrics': scores, 'curve': curve}
+                         'validation_metrics': scores, 'curve': curve,
+                         'data_version': config['data']['version']}
         rows.append({'model': name, 'threshold': threshold, 'train_seconds': seconds, **scores})
     return bundles, pd.DataFrame(rows).set_index('model')
 
 
-def select_model(bundles, table):
+def select_model(bundles, table, config):
     learned = table.drop(index='Always approve')
+    acceptable = [check_gate(row, row, config)[0] for _, row in learned.iterrows()]
+    learned = learned.loc[acceptable]
+    if learned.empty:
+        raise ValueError('No model meets the configured quality requirements.')
     name = learned.sort_values(['cost_per_txn', 'pr_auc'], ascending=[True, False]).index[0]
     return bundles[name]
 

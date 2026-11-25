@@ -48,6 +48,11 @@ def best_threshold(y, probability, config, dates, scale=1.0):
     eligible = table.loc[table.within_budget]
     if eligible.empty:
         raise ValueError('No threshold satisfies the daily alert budget.')
+    high_precision = eligible.loc[eligible.precision >= config['thresholds']['min_precision']]
+    # Still report an unqualified model if no threshold reaches the precision target.
+    # select_model and the gate will reject it.
+    if not high_precision.empty:
+        eligible = high_precision
     # Ties use the lower threshold, retaining more fraud for the same cost.
     best = eligible.sort_values(['cost_per_txn', 'threshold']).iloc[0]
     return float(best.threshold), table

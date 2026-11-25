@@ -27,18 +27,22 @@ def main():
         else:
             from fraud.registry import load_champion
             champion = load_champion()
+        for bundle in [candidate, champion]:
+            if bundle.get('data_version') != config['data']['version']:
+                raise ValueError('Model and dataset versions differ; rerun the notebooks.')
         frame = add_features(clean_data(pd.read_csv(ROOT / args.data)), config)
         _, validation, _ = time_split(frame, config)
         scores = evaluate_bundle(candidate, validation, config)
         reference = evaluate_bundle(champion, validation, config)
         passed, reasons = check_gate(scores, reference, config)
         result = {'passed': passed, 'candidate': candidate['name'], 'candidate_metrics': scores,
-                  'champion': champion['name'], 'champion_metrics': reference, 'reasons': reasons}
+                  'champion': champion['name'], 'champion_metrics': reference, 'reasons': reasons,
+                  'data_version': config['data']['version']}
         path = ROOT / args.output
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(result, indent=2))
         print(('PASS' if passed else 'BLOCK') + ': ' + '; '.join(reasons))
-        print(f'PR-AUC={scores["pr_auc"]:.4f}; recall={scores["recall"]:.4f}; '
+        print(f'PR-AUC={scores["pr_auc"]:.4f}; precision={scores["precision"]:.4f}; recall={scores["recall"]:.4f}; '
               f'cost=INR {scores["cost_per_txn"]:.2f}/transaction')
         return 0 if passed else 1
     except Exception as error:

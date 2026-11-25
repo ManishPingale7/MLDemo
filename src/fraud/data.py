@@ -3,7 +3,6 @@ from collections import deque
 
 import numpy as np
 import pandas as pd
-from scipy.special import expit
 
 CATEGORIES = ['grocery', 'food', 'fuel', 'travel', 'shopping', 'utilities',
               'electronics', 'gaming']
@@ -31,7 +30,7 @@ def previous_hour_counts(customers, seconds):
 
 
 def generate_data(config, preset='full'):
-    """Generate clean events, noisy labels, then documented mild data defects."""
+    """Generate routine/risky profiles, lightly noisy labels, then mild defects."""
     rng = np.random.default_rng(config['seed'])
     n = config['presets'][preset]['rows']
     customers = config['presets'][preset]['customers']
@@ -40,6 +39,12 @@ def generate_data(config, preset='full'):
     home = rng.integers(0, len(CITIES), customers)
     preferred = rng.integers(0, len(CATEGORIES), customers)
     customer = rng.integers(0, customers, n)
+    # A rare, coherent risk profile makes this an intentionally easy teaching dataset.
+    risky_probability = config['data']['risky_fraud_probability']
+    routine_probability = config['data']['routine_fraud_probability']
+    profile_rate = ((config['data']['fraud_rate'] - routine_probability) /
+                    (risky_probability - routine_probability))
+    risky_profile = rng.random(n) < profile_rate
 
     # Evening, weekend and month-start activity are explicit assumptions.
     dates = pd.date_range(start, periods=config['data']['days'])
@@ -49,19 +54,26 @@ def generate_data(config, preset='full'):
     hour_weight[:6] = 0.35
     hour_weight[18:23] = 2.2
     hour = rng.choice(24, n, p=hour_weight / hour_weight.sum())
+    late = risky_profile & (rng.random(n) < 0.75)
+    hour[late] = rng.integers(0, 6, late.sum())
     seconds = day * 86400 + hour * 3600 + rng.integers(0, 3600, n)
     # Small shopping bursts make actual previous-hour counts informative.
     for i in range(1, n):
-        if rng.random() < 0.18:
+        if rng.random() < (0.55 if risky_profile[i] else 0.18):
             customer[i] = customer[i - 1]
             seconds[i] = min(seconds[i - 1] + rng.integers(1, 900), 90 * 86400 - 1)
     order = np.argsort(seconds, kind='stable')
     seconds, customer = seconds[order], customer[order]
+    risky_profile = risky_profile[order]
     timestamp = start + pd.to_timedelta(seconds, unit='s')
     counts = previous_hour_counts(customer, seconds)
     category = np.where(rng.random(n) < 0.65, preferred[customer],
                         rng.integers(0, len(CATEGORIES), n))
     city = np.where(rng.random(n) < 0.90, home[customer], rng.integers(0, 10, n))
+    # Risky profiles combine large relative amounts with a genuinely different city.
+    category[risky_profile] = rng.choice([4, 6, 7], risky_profile.sum(), p=[0.15, 0.50, 0.35])
+    city[risky_profile] = (home[customer[risky_profile]] +
+                          rng.integers(1, len(CITIES), risky_profile.sum())) % len(CITIES)
     # Rough geographic distance; coordinates and this approximation are assumptions.
     delta = (COORDS[city] - COORDS[home[customer]]) * [111, 102]
     distance = np.sqrt((delta ** 2).sum(axis=1)) + rng.exponential(5, n)
@@ -70,26 +82,18 @@ def generate_data(config, preset='full'):
     amount[tail] *= rng.uniform(4, 15, tail.sum())
     rounded = rng.random(n) < 0.12
     amount[rounded] = rng.choice([100, 500, 1000], rounded.sum())
+    amount[risky_profile] = typical[customer[risky_profile]] * rng.uniform(7, 15, risky_profile.sum())
     amount = amount.round(2)
     device = rng.choice(['mobile', 'desktop', 'pos_terminal'], n, p=[0.60, 0.15, 0.25])
+    device[risky_profile] = rng.choice(['desktop', 'mobile'], risky_profile.sum(), p=[0.85, 0.15])
     # Internal merchant identifiers exist only during generation, not as a second table.
     merchant = np.where(rng.random(n) < 0.85, category, category * 100 +
                         rng.integers(10, 80, n))
+    merchant[risky_profile] = n + np.flatnonzero(risky_profile)
     new = (~pd.DataFrame({'c': customer, 'm': merchant}).duplicated()).astype(int).to_numpy()
-    ratio = amount / typical[customer]
-    score = (2.4 * (timestamp.hour < 6) + 2.8 * (ratio > 3) +
-             2.7 * (distance > 200) + 1.6 * new + 2.2 * (counts >= 3) +
-             1.0 * np.isin(category, [6, 7]) + 0.5 * (device == 'desktop'))
-    # Bisection fixes the expected prevalence, not individual labels.
-    # A 0.25% background probability makes some fraud intrinsically unpredictable.
-    low, high = 0.0, 20.0
-    for _ in range(50):
-        midpoint = (low + high) / 2
-        probability = 0.0025 + 0.90 * expit(1.8 * (score - midpoint))
-        if probability.mean() > config['data']['fraud_rate']:
-            low = midpoint
-        else:
-            high = midpoint
+    # Profile membership is NOT an output column or a model input.
+    # Light label noise prevents a perfect mapping from profile to fraud.
+    probability = np.where(risky_profile, risky_probability, routine_probability)
     fraud = rng.binomial(1, probability)
     frame = pd.DataFrame({
         'txn_id': [f'T{i:06d}' for i in range(n)], 'timestamp': timestamp,

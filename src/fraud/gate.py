@@ -7,11 +7,13 @@ from fraud.features import FEATURES
 def check_gate(candidate, champion, config):
     limits = config['gate']
     reasons = []
-    for key in ['pr_auc', 'recall', 'cost_per_txn']:
+    for key in ['pr_auc', 'precision', 'recall', 'cost_per_txn']:
         if not math.isfinite(candidate[key]):
             reasons.append(f'{key} is not finite')
     if candidate['pr_auc'] < limits['min_pr_auc']:
         reasons.append(f'PR-AUC {candidate["pr_auc"]:.3f} < {limits["min_pr_auc"]:.3f}')
+    if candidate['precision'] < limits['min_precision']:
+        reasons.append(f'precision {candidate["precision"]:.3f} < {limits["min_precision"]:.3f}')
     if candidate['recall'] < limits['min_recall']:
         reasons.append(f'recall {candidate["recall"]:.3f} < {limits["min_recall"]:.3f}')
     if candidate['cost_per_txn'] > limits['max_cost']:

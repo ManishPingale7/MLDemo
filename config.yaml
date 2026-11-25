@@ -6,12 +6,15 @@ data:
   start: '2025-01-01'
   days: 90
   fraud_rate: 0.015
+  version: teaching-v2
+  risky_fraud_probability: 0.97 # assumption: deliberately clear risk profiles
+  routine_fraud_probability: 0.0002 # assumption: small background label noise
 features:
   far_km: 200
 costs: # assumption: fixed review cost and fixed cost of missed fraud, in INR
   missed_fraud: 3000
   false_alarm: 100
 alert_budget_per_day: 45 # assumption; tiny uses proportional budget
-thresholds: {min: 0.01, max: 0.99, count: 99}
-gate: {min_pr_auc: 0.12, min_recall: 0.60, max_cost: 20.0}
+thresholds: {min: 0.01, max: 0.99, count: 99, min_precision: 0.85}
+gate: {min_pr_auc: 0.85, min_precision: 0.85, min_recall: 0.85, max_cost: 10.0}
 demo_note: 'local classroom example 10'

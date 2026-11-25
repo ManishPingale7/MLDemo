@@ -15,7 +15,7 @@ if __name__ == '__main__':
     train, validation, _ = time_split(frame, config)
     scale = config['presets']['tiny']['rows'] / config['presets']['full']['rows']
     bundles, comparison = fit_models(train, validation, config, scale)
-    selected = select_model(bundles, comparison)
+    selected = select_model(bundles, comparison, config)
     save_bundle(selected, ROOT / 'models/ci/candidate.joblib')
     # Fresh CI has no historical registry: bootstrap its reference with the baseline.
     save_bundle(bundles['Always approve'], ROOT / 'models/ci/reference.joblib')
