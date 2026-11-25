@@ -14,4 +14,4 @@ costs: # assumption: fixed review cost and fixed cost of missed fraud, in INR
 alert_budget_per_day: 45 # assumption; tiny uses proportional budget
 thresholds: {min: 0.01, max: 0.99, count: 99}
 gate: {min_pr_auc: 0.12, min_recall: 0.60, max_cost: 20.0}
-demo_note: 'local classroom example 1'
+demo_note: 'local classroom example 4'
