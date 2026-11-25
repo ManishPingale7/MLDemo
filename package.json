@@ -1,0 +1,1 @@
+{"name":"fraud-lab-local-preview","private":true,"scripts":{"dev":"python scripts/run_demo.py --no-browser --host 0.0.0.0"}}

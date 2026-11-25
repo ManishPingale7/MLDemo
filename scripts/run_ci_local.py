@@ -13,6 +13,11 @@ COMMANDS = [
     ['scripts/run_gate.py', '--candidate', 'models/ci/candidate.joblib',
      '--champion', 'models/ci/reference.joblib', '--data', 'data/tiny.csv',
      '--output', 'models/ci/metrics_summary.json'],
+    ['scripts/deploy_model.py', '--candidate', 'models/ci/candidate.joblib',
+     '--baseline', 'models/ci/reference.joblib', '--data', 'data/tiny.csv',
+     '--directory', 'models/ci/deployed'],
+    ['scripts/smoke_api.py', '--directory', 'models/ci/deployed',
+     '--data', 'data/tiny.csv', '--output', 'models/ci/api_smoke.json'],
 ]
 
 if __name__ == '__main__':

@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fraud Lab · API reference</title><link rel="stylesheet" href="/assets/style.css"><link rel="icon" href="/assets/icon.svg"></head><body><header class="topbar"><a class="brand" href="/"><img src="/assets/icon.svg" width="32" height="32" alt=""><span>fraud<span class="brand-light">lab</span></span></a><nav><a href="/">Open dashboard</a></nav></header><main class="api-main"><p class="eyebrow">LOCAL API REFERENCE</p><h1>One transaction in. One decision out.</h1><p>The API loads a quality-gated local model release. It applies the same cleaning, features and fitted pipeline as the notebooks. No network services are used for prediction.</p><h2>POST /predict</h2><p>Send JSON with the eleven transaction fields below. Do not include <code>is_fraud</code>: the actual label is never a prediction input. Scores are model outputs, not calibrated fraud probabilities.</p><pre>{
+  "txn_id": "DEMO-001",
+  "timestamp": "2025-03-10T02:00:00",
+  "customer_id": 100,
+  "amount_inr": 7200,
+  "customer_avg_amount_inr": 600,
+  "merchant_category": "electronics",
+  "city": "Delhi",
+  "distance_from_home_km": 950,
+  "device_type": "desktop",
+  "is_new_merchant": 1,
+  "txns_last_1h": 3
+}</pre><p>Response fields: <code>txn_id</code>, <code>score</code>, <code>threshold</code>, <code>decision</code> (approve/review), <code>model</code>, <code>release</code>, <code>data_version</code> and <code>latency_ms</code>. The actual score depends on the active fitted model; the dashboard shows the real response.</p><h2>Try it from Python</h2><pre>import requests
+
+transaction = {
+    "txn_id": "DEMO-001", "timestamp": "2025-03-10T02:00:00",
+    "customer_id": 100, "amount_inr": 7200,
+    "customer_avg_amount_inr": 600, "merchant_category": "electronics",
+    "city": "Delhi", "distance_from_home_km": 950,
+    "device_type": "desktop", "is_new_merchant": 1, "txns_last_1h": 3,
+}
+response = requests.post("http://127.0.0.1:8765/predict", json=transaction, timeout=10)
+response.raise_for_status()
+print(response.json())</pre><h2>Other endpoints</h2><table><thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead><tbody><tr><td>GET /health</td><td>Check readiness and the active release.</td></tr><tr><td>GET /api/model</td><td>See release metadata, validation metrics and replay provenance.</td></tr><tr><td>GET /api/samples?mode=balanced&amp;offset=0&amp;count=1</td><td>Get labelled validation examples for replay. Modes: natural, balanced, routine, fraud. Labels stay outside prediction requests.</td></tr><tr><td>POST /api/reload</td><td>Load the latest locally released artifact without restarting. In-flight requests finish on their original snapshot.</td></tr><tr><td>GET /openapi.json</td><td>Read the machine-readable schema.</td></tr></tbody></table><h2>Input rules</h2><p>Amounts and usual spend must be positive and finite. Distance may be null; device may be null or unknown. Timestamps must be local times without timezone suffixes, matching training. Invalid inputs return HTTP 422. Unknown extra fields, including the label, are rejected. This localhost teaching service has no login or production hardening.</p><h2>Release a model</h2><pre>python scripts/deploy_model.py
+python scripts/deploy_model.py --candidate models/baseline.joblib
+python scripts/deploy_model.py --rollback</pre><p>The first command evaluates the candidate before activating a new local release. The baseline command demonstrates a blocked release and exits with code 1. Rollback requires a previous release. After changing releases, click <strong>Reload model</strong> in the dashboard.</p></main></body></html>

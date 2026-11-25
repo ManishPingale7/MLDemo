@@ -208,7 +208,18 @@ ci.check_returncode()
 from fraud.plots import setup, flow
 setup()
 flow()
-display(Markdown(f'Local CI exits with code {ci.returncode}. CI uploads metrics for review; moving a registry alias remains a separate local decision.'))
+display(Markdown(f'Local CI exits with code {ci.returncode}. CI tests the model and API and uploads a tiny release; registry aliases and local deployment remain explicit decisions.'))
+"""), md('Local serving extends this workflow with a gated model release and a browser dashboard; run START-DEMO.cmd after the notebook to see requests reach FastAPI.'), code("""
+from fraud.deployment import deploy
+from fastapi.testclient import TestClient
+from fraud.api import create_app
+release = deploy()
+with TestClient(create_app()) as api:
+    example = api.get('/api/samples?mode=fraud').json()['samples'][0]
+    prediction = api.post('/predict', json=example['transaction'])
+    prediction.raise_for_status()
+    display(prediction.json())
+display(Markdown(f'Local release {release["release"]} serves {release["model"]}; the example returns {prediction.json()["decision"]}. The synthetic label is kept outside the prediction request.'))
 """), code("""
 import json
 elapsed = time.perf_counter() - started
