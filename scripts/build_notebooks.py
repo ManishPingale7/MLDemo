@@ -23,7 +23,10 @@ def code(text):
 def notebook_one():
     cells = [md('# 1. Problem and metrics\nFlag suspicious payments for review, using fraud-catching ability and an assumed business cost to compare models.'), code('''
 from pathlib import Path
-import os, sys, time, json
+import os
+import sys
+import time
+import json
 ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / 'src'))
@@ -128,5 +131,93 @@ display(Markdown(f'Saved the fitted pipeline and threshold in models/candidate.j
     write('01_fraud_detection.ipynb', cells)
 
 
+
+def notebook_two():
+    cells = [md('# 1. Git\nVersion code, configuration and the data generator so an experiment can be traced to the files that produced it.'), code("""
+from pathlib import Path
+import os
+import sys
+import time
+ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()
+os.chdir(ROOT)
+sys.path.insert(0, str(ROOT / 'src'))
+started = time.perf_counter()
+from IPython.display import display, Markdown, HTML
+from fraud.git_demo import demonstrate
+print(demonstrate())
+"""), code("""
+import subprocess
+commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
+display(Markdown(f'The local repository now includes a feature-branch edit, merge and tag at commit {commit}. Only demo_note changes, so the seed, model settings and costs stay fixed.'))
+"""), md('# 2. Experiment tracking with MLflow\nRetrain the same three models and log parameters, validation metrics, pipelines, thresholds and provenance to local SQLite and artifact files.'), code("""
+import pandas as pd
+from fraud.config import load_config
+from fraud.cleaning import clean_data, time_split
+from fraud.features import add_features
+from fraud.registry import track_models, start_ui
+config = load_config()
+frame = add_features(clean_data(pd.read_csv('data/transactions.csv')), config)
+train, validation, _ = time_split(frame, config)
+records, best, runs, comparison = track_models(train, validation, config)
+columns = ['tags.mlflow.runName', 'metrics.pr_auc', 'metrics.recall', 'metrics.precision', 'metrics.cost_per_txn', 'params.threshold', 'tags.git_commit', 'tags.config_hash']
+display(runs[columns])
+display(Markdown(f'This experiment records {len(records)} learned models; {best} has the lowest validation cost at INR {comparison.loc[best, "cost_per_txn"]:.2f} per transaction. Git SHA and the configuration hash link each run to its inputs.'))
+"""), code("""
+url = start_ui()
+display(Markdown(f'MLflow UI is responding at [{url}]({url}); experiment fraud-local contains the recorded runs. The database is mlflow.db and artifacts are under mlartifacts/.'))
+"""), md('# 3. Model registry\nUse champion and challenger aliases to demonstrate a reversible model-version choice without deploying anything.'), code("""
+import inspect
+import mlflow
+from mlflow import MlflowClient
+from fraud.registry import register_candidates, alias_table, move_champion, load_champion
+print(f'Installed MLflow: {mlflow.__version__}')
+print(inspect.signature(MlflowClient.set_registered_model_alias))
+print(inspect.signature(MlflowClient.get_model_version_by_alias))
+client, original, challenger = register_candidates(records, best)
+display(alias_table(client))
+display(Markdown(f'The initial champion is version {original}; challenger is version {challenger}. Each registered version keeps its own threshold as a version tag.'))
+"""), code("""
+display(move_champion(client, challenger))
+display(Markdown(f'Promotion moves champion to version {challenger}; challenger still points to that same version. This is an alias-mechanics demonstration, not a quality-approved release.'))
+display(move_champion(client, original))
+restored = load_champion()
+display(Markdown(f'Rollback restores champion to version {restored["registry_version"]}, with estimator {restored["name"]} and threshold {restored["threshold"]:.2f}. The next section evaluates against this current alias.'))
+"""), md('# 4. Tests and quality gate\nRun unit tests and compare each candidate with the current champion on validation data so acceptance has a repeatable rule.'), code("""!"{sys.executable}" -m pytest -q
+assert get_ipython().user_ns['_exit_code'] == 0, 'pytest failed' """), code("""
+import html
+commands = [[sys.executable, 'scripts/run_gate.py'], [sys.executable, 'scripts/run_gate.py', '--candidate', 'models/baseline.joblib', '--output', 'models/blocked_summary.json']]
+results = [subprocess.run(command, capture_output=True, text=True) for command in commands]
+assert [result.returncode for result in results] == [0, 1]
+columns = [f'<td style="vertical-align:top"><pre>{html.escape(result.stdout)}</pre><b>Exit {result.returncode}</b></td>' for result in results]
+display(HTML('<table><tr><th>Selected model</th><th>Always-approve baseline</th></tr><tr>' + ''.join(columns) + '</tr></table>'))
+display(Markdown(f'The selected model passes with exit {results[0].returncode}; the baseline is blocked with exit {results[1].returncode}. Tests cover deterministic data, row/batch preprocessing, known metric values, time boundaries and gate failures.'))
+"""), md('# 5. CI with GitHub Actions\nWrite the workflow and run its checks locally so a commit can trigger the same tests and gate after a future push.\n\nThis workflow runs on GitHub’s servers after pushing; the local demonstration uses python scripts/run_ci_local.py and does not contact GitHub. A new CI runner uses an always-approve bootstrap reference because it has no historical registry; the full gate above compares with the actual local champion.')]
+    workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+    lines = workflow.splitlines()
+    for offset in range(0, len(lines), 12):
+        mode = '-a ' if offset else ''
+        cells += [code(f'%%writefile {mode}.github/workflows/ci.yml\n' + '\n'.join(lines[offset:offset+12]))]
+    cells += [code("""
+print((ROOT / '.github/workflows/ci.yml').read_text())
+ci = subprocess.run([sys.executable, 'scripts/run_ci_local.py'], capture_output=True, text=True)
+print(ci.stdout)
+if ci.returncode:
+    print(ci.stderr)
+ci.check_returncode()
+from fraud.plots import setup, flow
+setup()
+flow()
+display(Markdown(f'Local CI exits with code {ci.returncode}. CI uploads metrics for review; moving a registry alias remains a separate local decision.'))
+"""), code("""
+import json
+elapsed = time.perf_counter() - started
+report = {'notebook_body_seconds': elapsed, 'gate_exit_codes': [result.returncode for result in results], 'ci_exit_code': ci.returncode, 'aliases': alias_table(client).to_dict('records')}
+(ROOT / 'models/mlops_summary.json').write_text(json.dumps(report, indent=2))
+display(Markdown(f'The MLOps notebook body ran in {elapsed:.2f} seconds on this machine, including {len(records)} tracked models, alias promotion and rollback, tests and both gate outcomes. Hosted GitHub Actions and Windows execution have not been tested here.'))
+""")]
+    write('02_mlops.ipynb', cells)
+
+
 if __name__ == '__main__':
     notebook_one()
+    notebook_two()

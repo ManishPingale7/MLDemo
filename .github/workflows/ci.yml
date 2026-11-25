@@ -1,0 +1,28 @@
+name: Local fraud checks
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m ruff check .
+      - run: python -m pytest -q
+      - run: python scripts/make_data.py --preset tiny
+      - run: python scripts/train_quick.py
+      - run: >-
+          python scripts/run_gate.py
+          --candidate models/ci/candidate.joblib
+          --champion models/ci/reference.joblib
+          --data data/tiny.csv
+          --output models/ci/metrics_summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-summary
+          path: models/ci/*.json
+          if-no-files-found: warn
