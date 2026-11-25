@@ -4,7 +4,19 @@
 
 **Dataset version: teaching-v2.** This intentionally easy dataset uses clear risk profiles and light label noise so the presentation can focus on the ML/MLOps workflow. Its high scores are by design and are not evidence of real-world fraud performance.
 
-A 30-minute teaching project for third-year engineering students: one table, three learned models, one always-approve baseline, and two executed notebooks. Python 3.11; no cloud account, paid service, deployment or internet access during the workflow. GitHub Actions is supplied for an optional future push; the local runner does not push or contact GitHub.
+A 30-minute teaching project for third-year engineering students: one table, three learned models, one always-approve baseline, and two executed notebooks. Python 3.11; model training, tracking and the live dashboard run locally with no paid service. GitHub Actions runs hosted CI after a push. Serving uses a manual, quality-gated local release; there is no automatic production deployment.
+
+## Live dashboard and FastAPI
+
+Double-click **START-DEMO.cmd** after extracting the project, or run `python scripts/run_demo.py` in the installed environment. Open **http://127.0.0.1:8765**. The dashboard provides traffic replay, start/pause and speed controls, a score chart, a decision feed, request inspection, custom inputs, CSV export and explicit model reload. The [step-by-step demo guide](docs/demo_guide.md) explains setup and the presentation.
+
+FastAPI serves the same fitted pipeline as the notebooks through `POST /predict`. Inputs are validated; labels are rejected; missing values use the training-fitted imputer. The default API documentation normally loads online assets, so this project supplies an offline reference at `/docs` and the schema at `/openapi.json`.
+
+`python scripts/deploy_model.py` gates a candidate against the current local release before updating `models/deployed/active.json`; `--rollback` restores the preceding release. The running API changes only after **Reload model**. A checksum validates each artifact. This is manual local deployment, distinct from the MLflow registry alias demonstration.
+
+Traffic replays labelled **validation** transactions. Balanced mode deliberately uses 50% fraud to make both decisions visible; natural mode replays the validation distribution. Session metrics use only labelled replay requests, excluding manual inputs. Neither mode changes the original held-out test results. No frontend build, Node installation, CDN, cloud prediction endpoint or external font is needed on the laptop.
+
+Repository and hosted CI: [ManishPingale7/MLDemo](https://github.com/ManishPingale7/MLDemo) · [Actions](https://github.com/ManishPingale7/MLDemo/actions). The workflow tests Linux and Windows, trains a tiny model, runs the gate, creates a release and exercises the API. Uploaded models are CI smoke-test artifacts; they are not automatically served to users.
 
 ## Start on Windows 11
 
@@ -43,6 +55,8 @@ The runner explicitly launches fresh notebook kernels with the current Python in
 config.yaml                       single seed, presets, assumptions, gate thresholds
 requirements.txt                  pinned installed environment
 START-WINDOWS.cmd                 install, execute and open Jupyter
+START-DEMO.cmd                    install and open the live dashboard
+web/                              offline HTML, CSS and JavaScript interface
 src/fraud/
   data.py                         short generator with clear synthetic risk profiles
   cleaning.py, features.py        row cleanup, features and time split
@@ -50,6 +64,8 @@ src/fraud/
   plots.py                        notebook charts
   registry.py, gate.py            local MLflow aliases and acceptance rules
   config.py, git_demo.py          configuration and real local Git demonstration
+  api.py, serving.py              validated FastAPI requests and fitted-model inference
+  deployment.py                   quality-gated local releases and rollback
 scripts/
   make_data.py, run_all.py        primary entry points
   run_gate.py, run_ci_local.py    gate and local CI commands
@@ -57,6 +73,8 @@ scripts/
   execute_notebook.py             fresh-kernel execution helper
   build_notebooks.py              notebook source authoring helper
   write_docs.py                   refresh measured README/talk notes
+  run_demo.py, deploy_model.py     dashboard launcher and local releases
+  smoke_api.py                    exercise a deployed model through API requests
 notebooks/                         two notebooks saved with visible outputs
 tests/                             data, preprocessing, metrics, gate, notebook/CI checks
 .github/workflows/ci.yml            optional hosted checks
@@ -77,7 +95,8 @@ Do not run `build_notebooks.py` just to present: it rewrites notebooks without o
 - Git versions code and assumptions; the notebook creates real local commits, branches and tags.
 - MLflow stores experiment records, fitted pipelines and named model-version aliases locally.
 - pytest checks behaviour; Ruff catches basic Python mistakes.
-- GitHub Actions describes checks for a future push; the same checks also run locally.
+- FastAPI and Uvicorn serve predictions and the dashboard on localhost.
+- GitHub Actions runs the checks after a push; the same checks also run locally.
 
 ## ML choices and assumptions
 
@@ -100,15 +119,15 @@ Validation metrics at each model's own budget-compliant threshold:
 | Model | Threshold | Accuracy | Precision | Recall | PR-AUC | Cost INR/txn | Fit seconds |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Always approve | 0.01 | 98.36% | 0.00% | 0.00% | 0.016 | 49.26 | 0.10 |
-| Logistic Regression | 0.85 | 99.61% | 86.11% | 91.18% | 0.935 | 4.59 | 0.18 |
-| Random Forest | 0.60 | 99.87% | 96.30% | 95.59% | 0.950 | 2.23 | 1.28 |
-| LightGBM | 0.79 | 99.87% | 96.30% | 95.59% | 0.918 | 2.23 | 0.37 |
+| Logistic Regression | 0.85 | 99.61% | 86.11% | 91.18% | 0.935 | 4.59 | 0.25 |
+| Random Forest | 0.60 | 99.87% | 96.30% | 95.59% | 0.950 | 2.23 | 1.34 |
+| LightGBM | 0.79 | 99.87% | 96.30% | 95.59% | 0.918 | 2.23 | 0.38 |
 
 Selected **Random Forest**, threshold **0.60**. Final test: accuracy **99.83%**, precision **91.06%**, recall **97.39%**, F1 **0.941**, PR-AUC **0.938**, ROC-AUC **0.985**, and cost **INR 1.24/transaction**, with **123 alerts**. Test metrics were not used to choose the model or threshold.
 
-Full-data quality gate: selected model **passes (exit 0)**; always-approve baseline **is blocked (exit 1)**. Tiny CI selects Random Forest (precision 100.00%, recall 100.00%, PR-AUC 1.000, cost INR 0.00/transaction). A small synthetic validation split can score perfectly; it is a smoke check, not a stable performance estimate. Local CI passes. **23 pytest checks pass; Ruff passes; pip reports no broken requirements.**
+Full-data quality gate: selected model **passes (exit 0)**; always-approve baseline **is blocked (exit 1)**. Tiny CI selects Random Forest (precision 100.00%, recall 100.00%, PR-AUC 1.000, cost INR 0.00/transaction). A small synthetic validation split can score perfectly; it is a smoke check, not a stable performance estimate. Local CI passes. **40 pytest checks pass; Ruff passes; pip reports no broken requirements.**
 
-Fresh-kernel execution including kernel startup: notebook 1 **9.53 s**; notebook 2 **35.05 s**; whole runner **45.57 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
+Fresh-kernel execution including kernel startup: notebook 1 **10.93 s**; notebook 2 **55.44 s**; whole runner **67.62 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
 
 ## MLflow and the registry
 
@@ -129,7 +148,7 @@ The second command deliberately returns 1. Gate requirements in `config.yaml` ar
 python scripts/run_ci_local.py
 ```
 
-This runs Ruff, pytest, tiny generation, quick training and the gate. A fresh CI runner has no registry history, so its reference is an explicitly saved always-approve bootstrap model. Tiny data and models live separately and never replace full-data artifacts. CI uploads JSON metrics for inspection. The diagram's registry step is a subsequent decision, not an implemented deployment step.
+This runs Ruff, pytest, tiny generation, quick training and the gate. A fresh CI runner has no registry history, so its reference is an explicitly saved always-approve bootstrap model. Tiny data and models live separately and never replace full-data artifacts. CI uploads JSON metrics and its tiny released model for inspection, and runs an API smoke check. The diagram's registry step is a subsequent decision, not an implemented deployment step.
 
 The UI continues running after notebooks finish. To stop it, stop the Python process whose PID appears in `.runtime/mlflow_ui.json` (Task Manager on Windows). To start it manually: `python -m mlflow ui --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000 --workers 1`. If port 5000 belongs to another service, stop that service before rerunning.
 
@@ -141,10 +160,10 @@ The UI continues running after notebooks finish. To stop it, stop the Python pro
 - MLflow **3.6.0** and LightGBM **4.6.0** signatures were inspected before integration. This uses MLflow's `name=` model logging and alias APIs, not deprecated stages. Model signatures use numeric doubles, and the logged Python function returns class probabilities.
 - The first install selected SQLAlchemy 2.1.9, which failed because MLflow imports an API removed in that series. Pinning **SQLAlchemy 2.0.44** fixed it; local tracking, model reload, aliases, promotion and rollback were then executed successfully.
 - Both notebooks ran top to bottom from fresh kernels and retain outputs. Offline verification blocked external Python socket connections while permitting loopback for Jupyter and MLflow. The workflow YAML was parsed and its referenced scripts checked.
-- **Not tested:** Windows 11 execution, a physical laptop's runtime, hosted GitHub Actions, or real fraud data. Windows is the intended setup target, not a claimed verified platform. No push or deployment was performed.
-- The conflicting request for “2 more models” was resolved in favour of the explicit three-model limit and acceptance criteria: three learned models plus the baseline. Advanced monitoring, serving and model-explanation systems are omitted as requested.
+- **Not tested:** Windows 11 execution, a physical laptop's runtime, hosted GitHub Actions, or real fraud data. Windows is the intended setup target, not a claimed verified platform. A public repository is used for GitHub CI; prediction serving remains local and manual.
+- The conflicting request for “2 more models” was resolved in favour of the explicit three-model limit and acceptance criteria: three learned models plus the baseline. The later request adds a local dashboard, FastAPI serving, manual deployment and hosted CI. Advanced monitoring and model-explanation systems remain omitted.
 - No published fraud statistics are used. Software documentation links (2026; API behaviour was verified directly against installed versions): [MLflow model registry](https://mlflow.org/docs/latest/ml/model-registry/), [MLflow sklearn API](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.sklearn.html), [LightGBM classifier API](https://lightgbm.readthedocs.io/en/v4.6.0/pythonapi/lightgbm.LGBMClassifier.html), [scikit-learn average precision](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html).
 
 ## Presentation and recovery
 
-Use [the short talk notes](docs/talk_notes.md). Pre-run both notebooks before the session. If a live cell fails, show its saved output and explain the input, decision and result. Use the last successful notebook outputs for discussion; do not invent replacement metrics. `python scripts/run_all.py` rebuilds generated data and model artifacts, but retains Git and MLflow history. The distributed archive includes the generated CSV and model/report artifacts; local tracking is rebuilt on your machine so artifact paths are valid there.
+Use [the short talk notes](docs/talk_notes.md) for the two notebooks, then [the demo guide](docs/demo_guide.md) for a 7–10 minute dashboard and API extension. Pre-run both notebooks before the session. If a live cell fails, show its saved output and explain the input, decision and result. Use the last successful notebook outputs for discussion; do not invent replacement metrics. `python scripts/run_all.py` rebuilds generated data and model artifacts, but retains Git and MLflow history. The distributed archive includes the generated CSV and model/report artifacts; local tracking is rebuilt on your machine so artifact paths are valid there.

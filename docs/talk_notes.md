@@ -1,6 +1,6 @@
 # 30-minute talk notes
 
-Before presenting: run `python scripts/run_all.py`, open both notebooks and Run All to initialise their kernels. Keep an untouched copy with outputs. Measured notebook runtimes: 9.53s and 35.05s on the tested Linux machine, not a measured Windows laptop.
+Before presenting: run `python scripts/run_all.py`, open both notebooks and Run All to initialise their kernels. Keep an untouched copy with outputs. Measured notebook runtimes: 10.93s and 55.44s on the tested Linux machine, not a measured Windows laptop.
 
 | Time | Section and what to run | What to say |
 |---|---|---|
@@ -19,6 +19,8 @@ Before presenting: run `python scripts/run_all.py`, open both notebooks and Run 
 | 22–25 | MLOps 3: run registration, promotion and rollback live | “A registered version is fixed; an alias is a movable name. We move champion to the challenger and back without retraining or deploying.” |
 | 25–28 | MLOps 4: run pytest and paired gates live | “Tests check code behaviour; a quality gate checks model acceptability. The real model exits 0, while the baseline exits 1 for low PR-AUC, zero recall and excessive cost.” |
 | 28–30 | MLOps 5: show saved workflow/local CI and diagram | “A future GitHub push runs these same checks. Fresh CI compares against a bootstrap baseline; choosing a registry alias is still a separate decision.” |
+
+**Optional 7–10 minute extension:** open the dashboard, start balanced traffic, inspect a request, try a manual transaction, show a blocked baseline release and open GitHub Actions; follow docs/demo_guide.md.
 
 **Two audience questions**
 
