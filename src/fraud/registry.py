@@ -122,11 +122,14 @@ def start_ui():
     except (OSError, urllib.error.URLError):
         pass
     log_path = ROOT / 'mlflow-ui.log'
+    detached = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
+                if os.name == 'nt' else {'start_new_session': True})
     with log_path.open('a') as log:
         process = subprocess.Popen([sys.executable, '-m', 'mlflow', 'ui',
                                     '--backend-store-uri', 'sqlite:///mlflow.db',
                                     '--host', '127.0.0.1', '--port', '5000', '--workers', '1'],
-                                   cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+                                   cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, **detached)
     for _ in range(80):
         if process.poll() is not None:
             raise RuntimeError(f'MLflow UI exited; see {log_path}')
