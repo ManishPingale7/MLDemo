@@ -95,20 +95,20 @@ Validation metrics at each model's own budget-compliant threshold:
 
 | Model | Threshold | Accuracy | Precision | Recall | PR-AUC | Cost INR/txn | Fit seconds |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Always approve | 0.01 | 98.79% | 0.00% | 0.00% | 0.012 | 36.26 | 0.11 |
-| Logistic Regression | 0.73 | 94.80% | 14.38% | 66.67% | 0.254 | 16.89 | 0.15 |
-| Random Forest | 0.45 | 94.41% | 14.15% | 71.57% | 0.329 | 15.56 | 1.83 |
+| Always approve | 0.01 | 98.79% | 0.00% | 0.00% | 0.012 | 36.26 | 0.10 |
+| Logistic Regression | 0.73 | 94.80% | 14.38% | 66.67% | 0.254 | 16.89 | 0.16 |
+| Random Forest | 0.45 | 94.41% | 14.15% | 71.57% | 0.329 | 15.56 | 1.80 |
 | LightGBM | 0.67 | 95.76% | 17.84% | 69.61% | 0.392 | 14.90 | 0.36 |
 
 Selected **LightGBM**, threshold **0.67**. Final test: accuracy **95.82%**, precision **20.25%**, recall **77.14%**, F1 **0.321**, PR-AUC **0.459**, ROC-AUC **0.920**, and cost **INR 12.68/transaction**, with **400 alerts**. Test metrics were not used to choose the model or threshold.
 
 Full-data quality gate: selected model **passes (exit 0)**; always-approve baseline **is blocked (exit 1)**. Tiny CI selects Random Forest (PR-AUC 0.463, recall 66.67%, cost INR 13.78/transaction); the smaller sample changes the ranking. Local CI passes. **19 pytest checks pass; Ruff passes; pip reports no broken requirements.**
 
-Fresh-kernel execution including kernel startup: notebook 1 **10.42 s**; notebook 2 **39.74 s**; whole runner **51.98 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
+Fresh-kernel execution including kernel startup: notebook 1 **9.93 s**; notebook 2 **36.07 s**; whole runner **47.39 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
 
 ## MLflow and the registry
 
-Tracking uses `sqlite:///mlflow.db` and a local `mlartifacts/` folder. The notebook starts a loopback-only UI at [localhost:5000](http://localhost:5000) and checks its health endpoint. Open the `fraud-local` experiment and the `fraud-classroom` registered model. A second run adds new runs and model versions rather than deleting history.
+Tracking uses `sqlite:///mlflow.db` and a local `mlartifacts/` folder. The notebook starts a detached, loopback-only UI at [localhost:5000](http://localhost:5000) and checks its health endpoint. Its runs and champion/challenger aliases were also checked in headless Chromium after notebook kernels had exited. Open the `fraud-local` experiment and the `fraud-classroom` registered model. A second run adds new runs and model versions rather than deleting history.
 
 Each run records parameters, validation scores, threshold, pipeline, Git SHA and configuration hash. Registered versions retain their threshold as a tag. The gate loads the **current champion alias**, including that version's threshold. Moving an alias never changes a pipeline's fitted weights. The registry section briefly promotes a second model to demonstrate the API, then rolls back; it is not a quality-approved release. CI never changes registry aliases automatically.
 
@@ -132,7 +132,7 @@ The UI continues running after notebooks finish. To stop it, stop the Python pro
 ## Reproducibility, compatibility and verification limits
 
 - One seed in `config.yaml` drives generation and estimators. Repeated full runs produced the same dataset and predictive metrics. Timings, Git hashes, run IDs and registry version numbers are expected to change. Bit-for-bit model artifacts across OS/CPU versions are not promised.
-- The exact installed dependency set is pinned in `requirements.txt`; POSIX-only dependencies have Windows markers. Windows-only transitive dependencies (including pywin32, pywinpty and colorama) are resolved by pip and were not installed, pinned or runtime-tested in this Linux environment. Target-platform resolution succeeded for Windows Python 3.11.9; this is an explicit limitation of the fully-verified dependency requirement. Python 3.11.0–3.11.4 are too old for the pinned dependency set.
+- The exact installed dependency set is pinned in `requirements.txt`; POSIX-only dependencies have Windows markers. Windows-only pywin32 and pywinpty are conditionally pinned from a successful Windows Python 3.11.9 dependency resolution. Those two Windows-only pins could not be installed or runtime-tested on Linux; this is an explicit exception to the requirement that every pin be installed and verified together. Python 3.11.0–3.11.4 are too old for the pinned dependency set.
 - MLflow **3.6.0** and LightGBM **4.6.0** signatures were inspected before integration. This uses MLflow's `name=` model logging and alias APIs, not deprecated stages. Model signatures use numeric doubles, and the logged Python function returns class probabilities.
 - The first install selected SQLAlchemy 2.1.9, which failed because MLflow imports an API removed in that series. Pinning **SQLAlchemy 2.0.44** fixed it; local tracking, model reload, aliases, promotion and rollback were then executed successfully.
 - Both notebooks ran top to bottom from fresh kernels and retain outputs. Offline verification blocked external Python socket connections while permitting loopback for Jupyter and MLflow. The workflow YAML was parsed and its referenced scripts checked.

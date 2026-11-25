@@ -1,6 +1,6 @@
 # 30-minute talk notes
 
-Before presenting: install Python 3.11 and Git; run `python scripts/run_all.py`. Open both notebooks and run each once so their kernels hold the variables. Keep saved outputs visible. Use these notes outside the notebooks. Numbers below come from the executed notebooks; full execution took 10.42s and 39.74s on the tested Linux machine, not a measured Windows laptop.
+Before presenting: install Python 3.11 and Git; run `python scripts/run_all.py`. Open both notebooks and run each once so their kernels hold the variables. Keep saved outputs visible. Use these notes outside the notebooks. Numbers below come from the executed notebooks; full execution took 9.93s and 36.07s on the tested Linux machine, not a measured Windows laptop.
 
 | Time | Section and what to run | What to say |
 |---|---|---|

@@ -1,5 +1,5 @@
 # Python 3.11; complete installed Linux environment, verified together.
-# POSIX-only packages have Windows markers; Windows-specific dependencies are resolved by pip.
+# Platform-only dependencies use markers; see README for verification limits.
 alembic==1.20.1
 annotated-doc==0.0.7
 annotated-types==0.8.0
@@ -159,3 +159,7 @@ webencodings==0.6.1
 websocket-client==1.9.2
 werkzeug==3.1.9
 zipp==4.1.2
+# Windows-only wheels: target resolution verified; Windows execution unavailable here.
+colorama==0.4.6
+pywin32==312; sys_platform == "win32"
+pywinpty==3.1.2; sys_platform == "win32"
