@@ -16,7 +16,7 @@ from mlflow import MlflowClient
 from mlflow.models import infer_signature
 
 from fraud.config import ROOT, config_hash
-from fraud.features import FEATURES
+from fraud.features import FEATURES, NUMERIC
 from fraud.models import fit_models, select_model
 
 MODEL_NAME = 'fraud-classroom'
@@ -59,10 +59,11 @@ def track_models(train, validation, config):
             mlflow.set_tags({'git_commit': commit, 'config_hash': config_hash()})
             mlflow.log_metrics(bundle['validation_metrics'])
             mlflow.log_metric('train_seconds', comparison.loc[name, 'train_seconds'])
-            example = validation[FEATURES].head(3)
-            signature = infer_signature(example, bundle['pipeline'].predict(example))
+            example = validation[FEATURES].head(3).astype({column: float for column in NUMERIC})
+            signature = infer_signature(example, bundle['pipeline'].predict_proba(example))
             info = mlflow.sklearn.log_model(bundle['pipeline'], name='pipeline',
-                                            signature=signature, pip_requirements=requirements)
+                                            signature=signature, pip_requirements=requirements,
+                                            pyfunc_predict_fn='predict_proba')
             mlflow.log_dict({'threshold': bundle['threshold'], 'model': name}, 'threshold.json')
             mlflow.log_artifact(str(ROOT / 'config.yaml'))
             records[name] = {'run_id': run.info.run_id, 'uri': info.model_uri,

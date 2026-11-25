@@ -31,6 +31,7 @@ ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / 'src'))
 started = time.perf_counter()
+'''), code('''
 import numpy as np
 import pandas as pd
 from IPython.display import display, Markdown
