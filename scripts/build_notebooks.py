@@ -225,7 +225,7 @@ import json
 elapsed = time.perf_counter() - started
 report = {'notebook_body_seconds': elapsed, 'gate_exit_codes': [result.returncode for result in results], 'ci_exit_code': ci.returncode, 'aliases': alias_table(client).to_dict('records')}
 (ROOT / 'models/mlops_summary.json').write_text(json.dumps(report, indent=2))
-display(Markdown(f'The MLOps notebook body ran in {elapsed:.2f} seconds on this machine, including {len(records)} tracked models, alias promotion and rollback, tests and both gate outcomes. Hosted GitHub Actions and Windows execution have not been tested here.'))
+display(Markdown(f'The MLOps notebook body ran in {elapsed:.2f} seconds on this machine, including {len(records)} tracked models, alias promotion and rollback, tests and both gate outcomes. These are local notebook checks; the repository Actions page records hosted Linux and Windows results.'))
 """)]
     write('02_mlops.ipynb', cells)
 

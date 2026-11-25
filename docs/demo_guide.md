@@ -80,7 +80,7 @@ MLflow's `champion` alias and the API's local release pointer are distinct. The 
 
 Repository: https://github.com/ManishPingale7/MLDemo
 
-Open **Actions → Fraud model and API checks**. A push or pull request triggers separate Linux and Windows jobs. Each job installs the pinned dependencies, runs Ruff and pytest, generates tiny data, trains a candidate, runs the quality gate, packages a local release and exercises the API.
+The [first complete hosted run](https://github.com/ManishPingale7/MLDemo/actions/runs/45666369894) passed on Linux and Windows. Open **Actions → Fraud model and API checks**. A push or pull request triggers separate Linux and Windows jobs. Each job installs the pinned dependencies, runs Ruff and pytest, generates tiny data, trains a candidate, runs the quality gate, packages a local release and exercises the API.
 
 Download the **model-and-metrics** artifact from a successful job to see its tiny model release and JSON reports. This artifact is a CI smoke-test model, not a replacement for the full-data presentation model. GitHub does not automatically deploy anything to your laptop.
 

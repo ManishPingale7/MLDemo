@@ -11,12 +11,16 @@ async function api(path, options = {}) {
   try {
     const response = await fetch(path, {...options, signal: controller.signal});
     const data = await response.json();
+    $('connection').className = 'connection online'; $('connection').lastChild.textContent = 'API online';
     if (!response.ok) {
       const detail = Array.isArray(data.detail) ? data.detail.map(item => `${item.loc.slice(1).join('.')}: ${item.msg}`).join('; ') : data.detail;
       throw new Error(detail || `Request failed (${response.status})`);
     }
     return data;
   } catch (failure) {
+    if (failure instanceof TypeError || failure.name === 'AbortError') {
+      $('connection').className = 'connection offline'; $('connection').lastChild.textContent = 'API unavailable';
+    }
     if (failure.name === 'AbortError') throw new Error('The API took too long to respond. Check the server terminal, then try again.');
     throw failure;
   } finally { clearTimeout(timeout); }
@@ -170,6 +174,7 @@ function preset(risky) {
 async function loadModel() {
   const model = await api('/api/model'); state.model = model;
   $('model-name').textContent = model.model;
+  document.querySelector('.model-icon').textContent = ({'Random Forest': 'RF', 'Logistic Regression': 'LR', 'LightGBM': 'GB'})[model.model] || 'ML';
   $('model-version').textContent = `${model.release} · threshold ${model.threshold.toFixed(2)}`;
   $('release').textContent = model.release; $('data-version').textContent = model.data_version;
   $('threshold').textContent = model.threshold.toFixed(2);
