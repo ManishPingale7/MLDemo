@@ -2,6 +2,8 @@
 
 **synthetic data, patterns modelled on common fraud signals; not real transactions**
 
+**Dataset version: teaching-v2.** This intentionally easy dataset uses clear risk profiles and light label noise so the presentation can focus on the ML/MLOps workflow. Its high scores are by design and are not evidence of real-world fraud performance.
+
 A 30-minute teaching project for third-year engineering students: one table, three learned models, one always-approve baseline, and two executed notebooks. Python 3.11; no cloud account, paid service, deployment or internet access during the workflow. GitHub Actions is supplied for an optional future push; the local runner does not push or contact GitHub.
 
 ## Start on Windows 11
@@ -42,7 +44,7 @@ config.yaml                       single seed, presets, assumptions, gate thresh
 requirements.txt                  pinned installed environment
 START-WINDOWS.cmd                 install, execute and open Jupyter
 src/fraud/
-  data.py                         short generator with documented noisy fraud rule
+  data.py                         short generator with clear synthetic risk profiles
   cleaning.py, features.py        row cleanup, features and time split
   models.py, evaluate.py          pipelines, threshold selection and shared metrics
   plots.py                        notebook charts
@@ -79,11 +81,13 @@ Do not run `build_notebooks.py` just to present: it rewrites notebooks without o
 
 ## ML choices and assumptions
 
-The generator produces 50,000 events plus 150 duplicate rows over 90 days. Fraud is about 1.5% by **assumption**; the actual raw dataset rate is 1.545%. This prevalence is deliberately high enough for readable classroom metrics. Any suggestion that operational fraud rates are lower is an assumption here, not a sourced industry statistic. Every generated pattern is an assumption, described in [the data dictionary](docs/data_dictionary.md).
+The generator produces 50,000 events plus 150 duplicate rows over 90 days. Fraud is about 1.5% by **assumption**; the actual raw dataset rate is 1.490%. This prevalence is deliberately high enough for readable classroom metrics. Any suggestion that operational fraud rates are lower is an assumption here, not a sourced industry statistic. Every generated pattern is an assumption, described in [the data dictionary](docs/data_dictionary.md).
+
+Routine payments follow customer preferences. Rare risky profiles combine spending 7–15 times the usual amount, a different city and a first-observed merchant, usually with shopping/electronics/gaming and a desktop device. Their assumed fraud probability is 97%, versus 0.02% for routine profiles. Profile membership is never an output column or model input; ID columns are excluded.
 
 Cleaning removes duplicates and nonpositive amounts, standardises categories and parses timestamps. Missing devices become `unknown`; numeric medians and one-hot vocabularies are learned on training rows only. The cleaning section shows an imputed preview using only the first 60 days. Actual model imputation remains inside the pipeline. Four additional inputs express night-time activity, relative amount, long distance and log amount. IDs and raw timestamps are excluded.
 
-EDA uses the first 60 days only. The time split is 60/15/15 days. Validation selects each model's threshold from a fixed 0.01–0.99 grid, then selects the model with the lowest cost. There is no hyperparameter search. The final 15-day test set is scored once per notebook execution, with the frozen choice; software verification repeats the notebook without tuning to test results.
+EDA uses the first 60 days only. The time split is 60/15/15 days. Validation selects thresholds from a fixed 0.01–0.99 grid, minimising cost within the daily alert budget and requiring at least 85% precision where achievable. A model unable to reach that precision is displayed for comparison but cannot become the selected model. Selection uses the lowest cost among models passing all quality requirements; cost ties use higher PR-AUC. There is no hyperparameter search. The final 15-day test set is scored once per notebook execution, with the frozen choice; software verification repeats the notebook without tuning to test results.
 
 The **assumed** cost is INR 3,000 per missed fraud and INR 100 per false alarm, regardless of transaction amount. A false positive incurs the review cost; true-positive reviews are assumed to have no additional cost in this simplified formula. Reviewers can handle at most 45 alerts on any validation day. Tiny CI scales that budget to 4.5, effectively at most four integer alerts per day. The budget constrains validation selection; it cannot guarantee a future day's alert volume.
 
@@ -95,22 +99,22 @@ Validation metrics at each model's own budget-compliant threshold:
 
 | Model | Threshold | Accuracy | Precision | Recall | PR-AUC | Cost INR/txn | Fit seconds |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Always approve | 0.01 | 98.79% | 0.00% | 0.00% | 0.012 | 36.26 | 0.10 |
-| Logistic Regression | 0.73 | 94.80% | 14.38% | 66.67% | 0.254 | 16.89 | 0.16 |
-| Random Forest | 0.45 | 94.41% | 14.15% | 71.57% | 0.329 | 15.56 | 1.80 |
-| LightGBM | 0.67 | 95.76% | 17.84% | 69.61% | 0.392 | 14.90 | 0.36 |
+| Always approve | 0.01 | 98.36% | 0.00% | 0.00% | 0.016 | 49.26 | 0.10 |
+| Logistic Regression | 0.85 | 99.61% | 86.11% | 91.18% | 0.935 | 4.59 | 0.18 |
+| Random Forest | 0.60 | 99.87% | 96.30% | 95.59% | 0.950 | 2.23 | 1.28 |
+| LightGBM | 0.79 | 99.87% | 96.30% | 95.59% | 0.918 | 2.23 | 0.37 |
 
-Selected **LightGBM**, threshold **0.67**. Final test: accuracy **95.82%**, precision **20.25%**, recall **77.14%**, F1 **0.321**, PR-AUC **0.459**, ROC-AUC **0.920**, and cost **INR 12.68/transaction**, with **400 alerts**. Test metrics were not used to choose the model or threshold.
+Selected **Random Forest**, threshold **0.60**. Final test: accuracy **99.83%**, precision **91.06%**, recall **97.39%**, F1 **0.941**, PR-AUC **0.938**, ROC-AUC **0.985**, and cost **INR 1.24/transaction**, with **123 alerts**. Test metrics were not used to choose the model or threshold.
 
-Full-data quality gate: selected model **passes (exit 0)**; always-approve baseline **is blocked (exit 1)**. Tiny CI selects Random Forest (PR-AUC 0.463, recall 66.67%, cost INR 13.78/transaction); the smaller sample changes the ranking. Local CI passes. **19 pytest checks pass; Ruff passes; pip reports no broken requirements.**
+Full-data quality gate: selected model **passes (exit 0)**; always-approve baseline **is blocked (exit 1)**. Tiny CI selects Random Forest (precision 100.00%, recall 100.00%, PR-AUC 1.000, cost INR 0.00/transaction). A small synthetic validation split can score perfectly; it is a smoke check, not a stable performance estimate. Local CI passes. **23 pytest checks pass; Ruff passes; pip reports no broken requirements.**
 
-Fresh-kernel execution including kernel startup: notebook 1 **9.93 s**; notebook 2 **36.07 s**; whole runner **47.39 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
+Fresh-kernel execution including kernel startup: notebook 1 **9.53 s**; notebook 2 **35.05 s**; whole runner **45.57 s**. Measured on Python 3.11.18, Linux x86-64, Intel Xeon Platinum 8573C, three visible logical CPUs. This is an execution-environment measurement, **not a Windows laptop benchmark**; laptop runtime remains unverified. Runtime metadata is in `models/run_summary.json`. The runner exits nonzero if either notebook exceeds 60 seconds.
 
 ## MLflow and the registry
 
 Tracking uses `sqlite:///mlflow.db` and a local `mlartifacts/` folder. The notebook starts a detached, loopback-only UI at [localhost:5000](http://localhost:5000) and checks its health endpoint. Its runs and champion/challenger aliases were also checked in headless Chromium after notebook kernels had exited. Open the `fraud-local` experiment and the `fraud-classroom` registered model. A second run adds new runs and model versions rather than deleting history.
 
-Each run records parameters, validation scores, threshold, pipeline, Git SHA and configuration hash. Registered versions retain their threshold as a tag. The gate loads the **current champion alias**, including that version's threshold. Moving an alias never changes a pipeline's fitted weights. The registry section briefly promotes a second model to demonstrate the API, then rolls back; it is not a quality-approved release. CI never changes registry aliases automatically.
+Each run records parameters, validation scores, threshold, pipeline, dataset version, Git SHA and configuration hash. Dataset version is also saved with each model; the gate rejects mismatched versions. Registered versions retain their threshold as a tag. The gate loads the **current champion alias**, including that version's threshold. Moving an alias never changes a pipeline's fitted weights. The registry section briefly promotes a second model to demonstrate the API, then rolls back; it is not a quality-approved release. CI never changes registry aliases automatically.
 
 To run the full gate after the notebooks:
 
@@ -119,7 +123,7 @@ python scripts/run_gate.py
 python scripts/run_gate.py --candidate models/baseline.joblib --output models/blocked_summary.json
 ```
 
-The second command deliberately returns 1. Gate requirements in `config.yaml` are PR-AUC ≥0.12, recall ≥0.60, cost ≤INR 20/transaction, and cost no higher than the current champion. All comparisons use validation data. Initial champion equals the selected model, so the first full gate demonstrates equality to an established reference; it does not prove an improvement over an older production model.
+The second command deliberately returns 1. Gate requirements in `config.yaml` are PR-AUC ≥0.85, precision ≥0.85, recall ≥0.85, cost ≤INR 10/transaction, and cost no higher than the current champion. All comparisons use validation data. Initial champion equals the selected model, so the first full gate demonstrates equality to an established reference; it does not prove an improvement over an older production model.
 
 ```text
 python scripts/run_ci_local.py
@@ -131,6 +135,7 @@ The UI continues running after notebooks finish. To stop it, stop the Python pro
 
 ## Reproducibility, compatibility and verification limits
 
+- This version changes the data-generating assumptions to produce stronger classroom results, as requested. It supersedes the original overlapping-risk design and its lower-recall target; old and new metrics are not comparable as a model-only improvement. The new generator and selection settings were frozen on validation before the new test set was scored.
 - One seed in `config.yaml` drives generation and estimators. Repeated full runs produced the same dataset and predictive metrics. Timings, Git hashes, run IDs and registry version numbers are expected to change. Bit-for-bit model artifacts across OS/CPU versions are not promised.
 - The exact installed dependency set is pinned in `requirements.txt`; POSIX-only dependencies have Windows markers. Windows-only pywin32 and pywinpty are conditionally pinned from a successful Windows Python 3.11.9 dependency resolution. Those two Windows-only pins could not be installed or runtime-tested on Linux; this is an explicit exception to the requirement that every pin be installed and verified together. Python 3.11.0–3.11.4 are too old for the pinned dependency set.
 - MLflow **3.6.0** and LightGBM **4.6.0** signatures were inspected before integration. This uses MLflow's `name=` model logging and alias APIs, not deprecated stages. Model signatures use numeric doubles, and the logged Python function returns class probabilities.

@@ -180,7 +180,7 @@ Use [the short talk notes](docs/talk_notes.md). Pre-run both notebooks before th
     (ROOT / 'README.md').write_text(readme, encoding='utf-8')
     notes = f'''# 30-minute talk notes
 
-Before presenting: install Python 3.11 and Git; run `python scripts/run_all.py`. Open both notebooks and run each once so their kernels hold the variables. Keep saved outputs visible. Use these notes outside the notebooks. Numbers below come from the executed notebooks; full execution took {timing['01_fraud_detection.ipynb']:.2f}s and {timing['02_mlops.ipynb']:.2f}s on the tested Linux machine, not a measured Windows laptop.
+Before presenting: run `python scripts/run_all.py`, open both notebooks and Run All to initialise their kernels. Keep an untouched copy with outputs. Measured notebook runtimes: {timing['01_fraud_detection.ipynb']:.2f}s and {timing['02_mlops.ipynb']:.2f}s on the tested Linux machine, not a measured Windows laptop.
 
 | Time | Section and what to run | What to say |
 |---|---|---|
@@ -207,7 +207,7 @@ Before presenting: install Python 3.11 and Git; run `python scripts/run_all.py`.
 
 **Fallback if a cell fails**
 
-Keep an untouched copy of the executed notebooks before presenting. Show its saved result, state that the live rerun failed, and continue the explanation. For a missing variable, restart the notebook and Run All before the talk; during the talk use saved outputs. For a busy port, use the recorded MLflow comparison/alias tables instead of the UI. If the gate rejects an edited model, show the reason; do not weaken thresholds to force a pass. Troubleshoot after the session with `python scripts/run_all.py` and `mlflow-ui.log`.
+Show the saved output and state that the live rerun failed. For missing variables or a busy UI port, continue with the saved tables. If a gate blocks an edited model, explain its reason rather than weakening the limits. Troubleshoot afterwards with `python scripts/run_all.py` and `mlflow-ui.log`.
 '''
     (ROOT / 'docs/talk_notes.md').write_text(notes, encoding='utf-8')
     print('Updated README and talk notes from executed artifacts.')
