@@ -1,0 +1,17 @@
+seed: 42
+presets:
+  full: {rows: 50000, customers: 5000}
+  tiny: {rows: 5000, customers: 500}
+data:
+  start: '2025-01-01'
+  days: 90
+  fraud_rate: 0.015
+features:
+  far_km: 200
+costs: # assumption: fixed review cost and fixed cost of missed fraud, in INR
+  missed_fraud: 3000
+  false_alarm: 100
+alert_budget_per_day: 45 # assumption; tiny uses proportional budget
+thresholds: {min: 0.01, max: 0.99, count: 99}
+gate: {min_pr_auc: 0.12, min_recall: 0.60, max_cost: 20.0}
+demo_note: 'local classroom example'
