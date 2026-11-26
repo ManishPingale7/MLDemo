@@ -1,6 +1,6 @@
 FROM python:3.11.14-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
-# LightGBM needs OpenMP even when the chosen artifact is a Random Forest.
+# LightGBM needs OpenMP; keep all three model types loadable.
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

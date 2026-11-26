@@ -57,6 +57,8 @@ DVC **3.67.1** tracks the full CSV through `data/transactions.csv.dvc` and a loc
 
 GitHub Actions also checks the container on Linux and the DVC restoration on Linux and Windows. The notebook's local CI command runs the core checks; these optional extensions have separate commands in the demo guide. Container builds do not publish an image or deploy to a remote service.
 
+See [Docker/DVC verification](docs/extensions_verification.md) for actual checks, saved reports and platform limitations.
+
 ## Start on Windows 11
 
 Install **64-bit Python 3.11.9** (or a compatible newer 3.11 patch release) and **Git for Windows** first. Extract this project to a writable folder. Double-click `START-WINDOWS.cmd`: it creates `.venv`, installs requirements, generates data, executes both notebooks, checks their runtimes and opens JupyterLab. The initial dependency installation needs internet access.
