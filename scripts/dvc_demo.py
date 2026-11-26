@@ -23,6 +23,11 @@ def main():
     if not source.exists():
         raise SystemExit('Generate the full data with scripts/make_data.py first.')
     environment = {**os.environ, 'DVC_NO_ANALYTICS': '1', 'DO_NOT_TRACK': 'true'}
+    tracked = subprocess.run([sys.executable, '-m', 'dvc', 'list', '.', 'data',
+                              '--dvc-only', '--json'], cwd=ROOT, env=environment,
+                             check=True, text=True, capture_output=True)
+    assert any(item['path'] == 'transactions.csv' for item in json.loads(tracked.stdout)), \
+        'DVC cannot discover the full dataset pointer; check .gitignore.'
     runtime = ROOT / '.runtime'
     runtime.mkdir(exist_ok=True)
     sandbox = Path(tempfile.mkdtemp(prefix='dvc-demo-', dir=runtime))
@@ -93,6 +98,7 @@ def main():
     report = {'passed': True, 'dvc_version': dvc('--version'), 'rows': len(rows),
               'first_sha256': first_hash, 'second_sha256': second_hash,
               'restored_sha256': restored_hash, 'original_unchanged': True,
+              'full_dataset_pointer_discovered': True,
               'local_cache_removed_before_pull': True, 'diff': diff, 'sandbox': str(sandbox)}
     output = ROOT / args.output
     output.parent.mkdir(parents=True, exist_ok=True)

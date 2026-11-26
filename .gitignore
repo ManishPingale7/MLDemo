@@ -6,9 +6,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .ipynb_checkpoints/
-data/*
-!data/*.dvc
-!data/.gitignore
+data/*.csv
 models/
 mlartifacts/
 mlruns/
