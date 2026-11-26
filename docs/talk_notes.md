@@ -22,6 +22,8 @@ Before presenting: run `python scripts/run_all.py`, open both notebooks and Run 
 
 **Optional 7–10 minute extension:** open the dashboard, start balanced traffic, inspect a request, try a manual transaction, show a blocked baseline release and open GitHub Actions; follow docs/demo_guide.md.
 
+**Optional 7-minute Docker/DVC extension:** 3 minutes for a pre-built Docker container and traffic, 3 minutes for the safe DVC change/restore script, 1 minute for the added CI checks. Commands and expected output: docs/docker_dvc_demo.md. Keep installation and image building before class.
+
 **Two audience questions**
 
 1. “Would you trust a model that approves every transaction?” Answer: no; it has high accuracy here but zero fraud recall.

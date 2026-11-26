@@ -94,6 +94,12 @@ git push origin main
 
 Use a feature branch and pull request for collaborative changes. Re-run the same checks locally with `python scripts/run_ci_local.py` before pushing.
 
+## 6. Optional Docker and DVC extension
+
+Follow [the Docker/DVC guide](docker_dvc_demo.md): run the same model in a container,
+then version and restore a dataset copy. Allow seven extra minutes and pre-build the
+image before presenting. The two notebooks remain the core 30-minute presentation.
+
 ## Troubleshooting and boundaries
 
 - No model/data: run `python scripts/run_all.py`, then `python scripts/run_demo.py`.

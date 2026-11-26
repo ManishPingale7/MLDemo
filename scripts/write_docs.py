@@ -114,6 +114,12 @@ scripts/
   write_docs.py                   refresh measured README/talk notes
   run_demo.py, deploy_model.py     dashboard launcher and local releases
   smoke_api.py                    exercise a deployed model through API requests
+  prepare_container.py, smoke_container.py  stage a release and test Docker HTTP
+  dvc_demo.py                     safe dataset version/restore demonstration
+Dockerfile, compose.yaml           local container with a trained release
+requirements-serving.txt           pinned container dependencies
+requirements-dvc.txt               pinned optional DVC environment
+.dvc/, data/transactions.csv.dvc    dataset version metadata (tracked in Git)
 notebooks/                         two notebooks saved with visible outputs
 tests/                             data, preprocessing, metrics, gate, notebook/CI checks
 .github/workflows/ci.yml            optional hosted checks
@@ -135,7 +141,9 @@ Do not run `build_notebooks.py` just to present: it rewrites notebooks without o
 - MLflow stores experiment records, fitted pipelines and named model-version aliases locally.
 - pytest checks behaviour; Ruff catches basic Python mistakes.
 - FastAPI and Uvicorn serve predictions and the dashboard on localhost.
-- GitHub Actions runs the checks after a push; the same checks also run locally.
+- Docker packages the fitted model and API into a locally runnable image.
+- DVC links a Git commit to an exact dataset file stored outside Git.
+- GitHub Actions runs core checks and optional Docker/DVC checks after a push.
 
 ## ML choices and assumptions
 
@@ -228,6 +236,8 @@ Before presenting: run `python scripts/run_all.py`, open both notebooks and Run 
 | 28–30 | MLOps 5: show saved workflow/local CI and diagram | “A future GitHub push runs these same checks. Fresh CI compares against a bootstrap baseline; choosing a registry alias is still a separate decision.” |
 
 **Optional 7–10 minute extension:** open the dashboard, start balanced traffic, inspect a request, try a manual transaction, show a blocked baseline release and open GitHub Actions; follow docs/demo_guide.md.
+
+**Optional 7-minute Docker/DVC extension:** 3 minutes for a pre-built Docker container and traffic, 3 minutes for the safe DVC change/restore script, 1 minute for the added CI checks. Commands and expected output: docs/docker_dvc_demo.md. Keep installation and image building before class.
 
 **Two audience questions**
 
