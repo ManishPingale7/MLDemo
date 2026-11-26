@@ -1,0 +1,9 @@
+# Runtime only; exact versions shared with the notebook environment.
+fastapi==0.165.0
+uvicorn==0.54.0
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+lightgbm==4.6.0
+joblib==1.5.2
+PyYAML==6.0.3

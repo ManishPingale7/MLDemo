@@ -193,6 +193,7 @@ columns = [f'<td style="vertical-align:top"><pre>{html.escape(result.stdout)}</p
 display(HTML('<table><tr><th>Selected model</th><th>Always-approve baseline</th></tr><tr>' + ''.join(columns) + '</tr></table>'))
 display(Markdown(f'The selected model passes with exit {results[0].returncode}; the baseline is blocked with exit {results[1].returncode}. Tests cover deterministic data, row/batch preprocessing, known metric values, time boundaries and gate failures.'))
 """), md('# 5. CI with GitHub Actions\nWrite the workflow and run its checks locally so a commit can trigger the same tests and gate after a future push.\n\nThis workflow runs on GitHub’s servers after pushing; the local demonstration uses python scripts/run_ci_local.py and does not contact GitHub. A new CI runner uses an always-approve bootstrap reference because it has no historical registry; the full gate above compares with the actual local champion.')]
+    cells += [md('Optional Docker and DVC checks also run in the hosted workflow: Docker on Linux and DVC on Linux and Windows. The local notebook runs the core checks; follow [the separate demo guide](../docs/docker_dvc_demo.md) for container startup and dataset restoration after this notebook.')]
     workflow = (ROOT / '.github/workflows/ci.yml').read_text()
     lines = workflow.splitlines()
     for offset in range(0, len(lines), 12):

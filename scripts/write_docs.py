@@ -49,6 +49,14 @@ Traffic replays labelled **validation** transactions. Balanced mode deliberately
 
 Repository and hosted CI: [ManishPingale7/MLDemo](https://github.com/ManishPingale7/MLDemo) · [Actions](https://github.com/ManishPingale7/MLDemo/actions). The workflow tests Linux and Windows, trains a tiny model, runs the gate, creates a release and exercises the API. Uploaded models are CI smoke-test artifacts; they are not automatically served to users.
 
+## Docker and optional DVC
+
+Follow [the short Docker/DVC demo](docs/docker_dvc_demo.md). Docker packages an existing checked model, FastAPI and the dashboard; `python scripts/prepare_container.py` stages the artifacts and `docker compose up --build -d --wait` starts them at localhost:8765. The first image build needs internet; subsequent starts can run offline. Docker Desktop with Linux containers is needed on Windows.
+
+DVC **3.67.1** tracks the full CSV through `data/transactions.csv.dvc` and a local storage folder. **START-DVC.cmd** installs its separately pinned environment and runs a safe change/restore demonstration on a dataset copy. DVC is optional; the notebooks do not depend on it. See `requirements-serving.txt` for the Docker runtime pins and `requirements-dvc.txt` for optional DVC pins; `requirements.txt` remains the notebook environment.
+
+GitHub Actions also checks the container on Linux and the DVC restoration on Linux and Windows. The notebook's local CI command runs the core checks; these optional extensions have separate commands in the demo guide. Container builds do not publish an image or deploy to a remote service.
+
 ## Start on Windows 11
 
 Install **64-bit Python 3.11.9** (or a compatible newer 3.11 patch release) and **Git for Windows** first. Extract this project to a writable folder. Double-click `START-WINDOWS.cmd`: it creates `.venv`, installs requirements, generates data, executes both notebooks, checks their runtimes and opens JupyterLab. The initial dependency installation needs internet access.

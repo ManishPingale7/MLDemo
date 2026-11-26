@@ -1,9 +1,14 @@
 .venv/
+.venv-dvc/
+.container/
+.dvc-storage/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
 .ipynb_checkpoints/
-data/
+data/*
+!data/*.dvc
+!data/.gitignore
 models/
 mlartifacts/
 mlruns/

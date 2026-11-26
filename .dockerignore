@@ -1,0 +1,12 @@
+# Allow only the serving code and explicitly staged artifact into the image.
+**
+!Dockerfile
+!requirements-serving.txt
+!config.yaml
+!src/
+!src/**
+src/**/__pycache__/
+!web/
+!web/**
+!.container/
+!.container/**

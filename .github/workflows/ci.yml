@@ -37,6 +37,27 @@ jobs:
           --directory models/ci/deployed
           --data data/tiny.csv
           --output models/ci/api_smoke.json
+      - name: Stage the checked model for Docker (Linux)
+        if: runner.os == 'Linux'
+        run: python scripts/prepare_container.py --directory models/ci/deployed --data data/tiny.csv
+      - name: Build and start Docker (Linux)
+        if: runner.os == 'Linux'
+        run: docker compose up --build -d --wait --wait-timeout 60
+      - name: Check predictions over real HTTP (Linux)
+        if: runner.os == 'Linux'
+        run: python scripts/smoke_container.py --output models/ci/container_smoke.json
+      - name: Stop Docker (Linux)
+        if: always() && runner.os == 'Linux'
+        run: docker compose down
+      - name: Install and verify optional DVC in its own environment
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys
+          subprocess.run([sys.executable, '-m', 'venv', '.venv-dvc'], check=True)
+          python = str(pathlib.Path('.venv-dvc') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python'))
+          subprocess.run([python, '-m', 'pip', 'install', '-r', 'requirements-dvc.txt'], check=True)
+          subprocess.run([python, '-m', 'pip', 'check'], check=True)
+          subprocess.run([python, 'scripts/dvc_demo.py', '--data', 'data/tiny.csv', '--output', 'models/ci/dvc_demo.json'], check=True)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
