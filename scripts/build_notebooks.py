@@ -1,4 +1,5 @@
 """Author the small notebook cells; executed outputs are saved by run_all.py."""
+import base64
 from pathlib import Path
 import nbformat as nbf
 
@@ -6,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def write(name, cells):
-    notebook = nbf.v4.new_notebook(cells=cells)
+    notebook = nbf.v4.new_notebook(cells=add_memes(name, cells))
     notebook.metadata.kernelspec = {'display_name': 'Python 3.11 (project)',
                                    'language': 'python', 'name': 'python3'}
     nbf.write(notebook, ROOT / 'notebooks' / name)
@@ -18,6 +19,53 @@ def md(text):
 
 def code(text):
     return nbf.v4.new_code_cell(text.strip())
+
+
+def meme_cell(filename, alt, width, caption=''):
+    """Embed the original image so the notebook remains self-contained offline."""
+    path = ROOT / 'notebooks/assets/memes' / filename
+    mime = 'image/png' if path.suffix == '.png' else 'image/jpeg'
+    source = (f'<div style="max-width: {width}px;">\n\n'
+              f'![{alt}](attachment:{filename})\n\n</div>')
+    if caption:
+        source += '\n\n' + caption
+    return nbf.v4.new_markdown_cell(
+        source, id='meme-' + path.stem,
+        metadata={'tags': ['presentation-meme']},
+        attachments={filename: {mime: base64.b64encode(path.read_bytes()).decode('ascii')}})
+
+
+def add_memes(name, cells):
+    """Insert the six approved presentation images without editing original cells."""
+    cells = [cell for cell in cells if 'presentation-meme' not in cell.metadata.get('tags', [])]
+
+    def insert_at(prefix, image, after=False):
+        indices = [i for i, cell in enumerate(cells) if cell.source.startswith(prefix)]
+        if len(indices) != 1:
+            raise ValueError(f'Expected one meme insertion point in {name}: {prefix}')
+        cells.insert(indices[0] + int(after), image)
+
+    if name == '01_fraud_detection.ipynb':
+        cells.insert(0, meme_cell('yoda.png', 'Master the art of ML; I teach how', 380))
+        insert_at('from fraud.evaluate import metrics', meme_cell(
+            'accuracy.jpg', '99 percent accuracy when one class dominates the data', 360,
+            'Illustration only: 99% is the meme\'s example; the table above gives '
+            'this dataset\'s measured accuracy.'), after=True)
+    elif name == '02_mlops.ipynb':
+        cells.insert(0, meme_cell('one-notebook.jpg',
+                                 'MLOps: when one Jupyter notebook just is not enough', 560))
+        insert_at('!"{sys.executable}" -m pytest', meme_cell(
+            'test-in-production.jpg', 'I do not always test my code, but when I do, '
+            'I do it in production', 440))
+        insert_at('from fraud.deployment import deploy', meme_cell(
+            'notebook-in-production.jpg', 'When do I get to run my notebook in production? '
+            'That is the neat part: you do not', 440,
+            'In this project, FastAPI loads the saved pipeline; the notebook is used '
+            'for training and explanation.'))
+        cells.append(meme_cell('learning-from-memes.jpg',
+                               'Learning ML from university, courses, YouTube, articles and memes',
+                               400))
+    return cells
 
 
 def notebook_one():
