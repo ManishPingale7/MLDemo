@@ -19,7 +19,7 @@ def check(base_url, output):
         try:
             health = json.loads(request('/health'))
             break
-        except (URLError, TimeoutError):
+        except (URLError, TimeoutError, ConnectionError):
             if time.monotonic() >= deadline:
                 raise RuntimeError('Container did not become ready within 45 seconds.') from None
             time.sleep(0.5)
