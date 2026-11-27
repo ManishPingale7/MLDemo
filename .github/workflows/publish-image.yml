@@ -1,0 +1,86 @@
+name: Publish Docker image
+
+# Keep this separate: notebook 2 writes ci.yml during its classroom demonstration.
+on:
+  workflow_run:
+    workflows: ["Fraud model and API checks"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-image-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python scripts/make_data.py --preset full
+      - run: python scripts/train_release.py
+      - name: Gate the full-data candidate
+        run: >-
+          python scripts/run_gate.py
+          --candidate models/publish/candidate.joblib
+          --champion models/publish/baseline.joblib
+          --data data/transactions.csv
+          --output models/publish/metrics_summary.json
+      - name: Create a separate checked release
+        run: >-
+          python scripts/deploy_model.py
+          --candidate models/publish/candidate.joblib
+          --baseline models/publish/baseline.joblib
+          --data data/transactions.csv
+          --directory models/publish/deployed
+      - run: python scripts/prepare_container.py --directory models/publish/deployed
+      - name: Set the lowercase image name and commit tag
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${SOURCE_SHA}" >> "$GITHUB_ENV"
+      - name: Build the image that will be published
+        run: |
+          docker build -t "$IMAGE" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" .
+      - name: Test the image over HTTP
+        run: |
+          docker run -d --name fraud-publish-check -p 127.0.0.1:8765:8765 "$IMAGE"
+          python scripts/smoke_container.py --output models/publish/container_smoke.json
+      - name: Publish the exact tested image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE"
+          echo "Published image: $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pull command: docker pull $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo "Run command: docker run --rm -p 127.0.0.1:8765:8765 $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Stop the test container
+        if: always()
+        run: docker rm -f fraud-publish-check || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-model-checks-${{ github.event.workflow_run.head_sha }}
+          path: models/publish/*.json
+          if-no-files-found: warn
